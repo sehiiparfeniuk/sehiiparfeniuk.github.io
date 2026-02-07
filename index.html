@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Моделювання аналізу навігаційних параметрів БПЛА в умовах РЕБ</title>
+
+  <!-- Leaflet (карта) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root{
+      --bg0:#07101f;
+      --bg1:#0a1730;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.04);
+      --br: rgba(255,255,255,.10);
+      --txt:#eaf2ff;
+      --mut: rgba(234,242,255,.70);
+      --acc:#49a6ff;
+      --good:#37d67a;
+      --warn:#ffcc66;
+      --bad:#ff5b6a;
+      --shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--txt);
+      background: radial-gradient(1200px 800px at 30% -10%, #163b7a 0%, rgba(22,59,122,0) 60%),
+                  radial-gradient(900px 700px at 120% 10%, #254c3f 0%, rgba(37,76,63,0) 55%),
+                  linear-gradient(180deg, var(--bg0), var(--bg1));
+      min-height:100vh;
+    }
+    header{
+      padding:18px 18px 10px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header h1{
+      margin:0 0 6px 0;
+      font-size: 20px;
+      letter-spacing: .2px;
+    }
+    header p{
+      margin:0;
+      color: var(--mut);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .wrap{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 18px 26px;
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 14px;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--br);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display:flex;
+      justify-content: space-between;
+      align-items:flex-end;
+      gap:10px;
+    }
+    .hd .title{
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: .2px;
+    }
+    .hd .sub{
+      color: var(--mut);
+      font-size: 12px;
+      margin-top:3px;
+    }
+    .card .bd{
+      padding: 12px 14px 14px;
+    }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      margin-bottom: 10px;
+    }
+    .pill{
+      padding: 7px 10px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      font-size: 12.5px;
+      color: var(--mut);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .pill strong{ color: var(--txt); font-weight: 800; }
+
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(255,255,255,.14);
+    }
+    button.btn{
+      cursor:pointer;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.14);
+      color: var(--txt);
+      padding: 9px 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      transition: .15s ease;
+    }
+    button.btn:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.22); }
+    button.btn:active{ transform: translateY(0px); }
+
+    .modeBtns{ display:flex; gap:8px; flex-wrap:wrap; }
+    .modeBtn{
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--txt);
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor:pointer;
+      transition: .15s ease;
+    }
+    .modeBtn.active{
+      border-color: rgba(73,166,255,.75);
+      box-shadow: 0 0 0 3px rgba(73,166,255,.14) inset;
+    }
+
+    #map{
+      height: 420px;
+      border-radius: 14px;
+      overflow:hidden;
+      border: 1px solid rgba(255,255,255,.10);
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.10);
+    }
+    .tabBtn{
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--mut);
+      font-size: 12.5px;
+      font-weight: 900;
+      cursor:pointer;
+      transition: .15s ease;
+    }
+    .tabBtn.active{
+      color: var(--txt);
+      border-color: rgba(73,166,255,.75);
+      box-shadow: 0 0 0 3px rgba(73,166,255,.14) inset;
+    }
+    .panel{ padding: 12px 14px 14px; display:none; }
+    .panel.active{ display:block; }
+
+    .miniGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .kpi{
+      background: var(--card2);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 10px 10px;
+      min-height: 86px;
+    }
+    .kpi .k{ color: var(--mut); font-size:12px; font-weight:800; }
+    .kpi .v{
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      margin-top: 6px;
+      margin-bottom: 6px;
+    }
+    .kpi .s{ color: var(--mut); font-size: 12.2px; line-height: 1.25; }
+
+    .inputs h3{
+      margin: 12px 0 8px;
+      font-size: 13px;
+      letter-spacing: .2px;
+    }
+    .formGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .field{
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 10px;
+    }
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--mut);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    input{
+      width:100%;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.20);
+      color: var(--txt);
+      font-weight: 800;
+      outline:none;
+    }
+    input:focus{
+      border-color: rgba(73,166,255,.75);
+      box-shadow: 0 0 0 3px rgba(73,166,255,.14);
+    }
+    .help{
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--mut);
+      line-height:1.25;
+    }
+
+    .hint{
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(73,166,255,.08);
+      border: 1px solid rgba(73,166,255,.20);
+      border-radius: 14px;
+      color: var(--mut);
+      font-size: 12.5px;
+      line-height: 1.35;
+    }
+
+    .winBtns{ display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0 8px; }
+    .subPill{
+      display:inline-flex; gap:8px; align-items:center;
+      border-radius: 999px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--mut);
+      font-size: 12.5px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .dot{
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 0 3px rgba(55,214,122,.12);
+    }
+
+    .legend{
+      margin-top: 10px;
+      color: var(--mut);
+      font-size: 12.5px;
+      line-height: 1.35;
+    }
+    .legend b{ color: var(--txt); }
+
+    /* Drone marker style */
+    .drone-icon{
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.95);
+      box-shadow: 0 0 0 4px rgba(73,166,255,.15);
+      background: rgba(73,166,255,.95);
+    }
+    .drone-icon.est{
+      background: rgba(255,204,102,.95);
+      box-shadow: 0 0 0 4px rgba(255,204,102,.15);
+    }
+
+    .toggleRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top: 10px;
+    }
+    .toggle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--mut);
+      font-size: 12.5px;
+      font-weight: 800;
+    }
+    .toggle input{ width:auto; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Веб-інструмент моделювання аналізу навігаційних параметрів БПЛА в умовах РЕБ</h1>
+    <p>Прототип: 3 режими (GNSS / AUTO / РЕБ). На карті відображається траєкторія та рухомий маркер “дрон”.</p>
+  </header>
+
+  <div class="wrap">
+    <!-- LEFT -->
+    <div class="card">
+      <div class="hd">
+        <div>
+          <div class="title">Симуляція та карта</div>
+          <div class="sub">Вибери режим → запусти → дивись траєкторію + рух маркера</div>
+        </div>
+        <div class="pill"><span>Стан:</span> <strong id="runState">зупинено</strong></div>
+      </div>
+
+      <div class="bd">
+        <div class="controls">
+          <div class="pill"><span>Режим:</span> <strong id="modePill">GNSS</strong></div>
+          <div class="pill"><span>Точки:</span> <strong id="pointsPill">0</strong></div>
+        </div>
+
+        <div class="modeBtns" aria-label="Режими">
+          <button class="modeBtn active" data-mode="GNSS">GNSS</button>
+          <button class="modeBtn" data-mode="AUTO">AUTO</button>
+          <button class="modeBtn" data-mode="REB">РЕБ</button>
+        </div>
+
+        <div class="btnRow">
+          <button class="btn" id="btnStart">Старт</button>
+          <button class="btn" id="btnStop">Стоп</button>
+          <button class="btn" id="btnResetMode">Скинути (режим)</button>
+          <button class="btn" id="btnResetAll">Скинути (все)</button>
+        </div>
+
+        <div class="btnRow" style="padding-top:0">
+          <button class="btn" id="btnClearMode">Очистити дані режиму</button>
+          <button class="btn" id="btnDemo60">Заповнити демо (60с)</button>
+          <button class="btn" id="btnFit">Показати траєкторію (fit)</button>
+        </div>
+
+        <div class="toggleRow">
+          <div class="toggle">
+            <input type="checkbox" id="chkFollow" checked />
+            <label for="chkFollow" style="margin:0;color:inherit;font-weight:800;">Слідкувати за дроном</label>
+          </div>
+          <div class="toggle">
+            <input type="checkbox" id="chkShowEst" checked />
+            <label for="chkShowEst" style="margin:0;color:inherit;font-weight:800;">Показувати оцінену траєкторію</label>
+          </div>
+        </div>
+
+        <div class="hint">
+          Якщо хочеш “швидко”: натисни <b>«Заповнити демо (60с)»</b> → потім <b>«Показати траєкторію (fit)»</b> → дрон і лінії будуть видно 100%.
+        </div>
+
+        <div id="map" aria-label="Карта траєкторії"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tabBtn active" data-tab="charts">Графіки</button>
+        <button class="tabBtn" data-tab="table">Таблиця</button>
+        <button class="tabBtn" data-tab="explain">Пояснення</button>
+      </div>
+
+      <div class="panel active" id="tab_charts">
+        <div class="subPill">
+          <span class="dot" id="dotCur"></span>
+          <span>Поточний режим: <b id="curModeText">GNSS</b></span>
+        </div>
+
+        <div class="winBtns">
+          <button class="btn" id="btnWinErr">Графік похибки (вікно)</button>
+          <button class="btn" id="btnWinSpeed">Графік швидкості V_est (вікно)</button>
+          <button class="btn" id="btnWinGnss">Графік GNSS (вікно)</button>
+          <button class="btn" id="btnWinTable">Таблиця телеметрії (вікно)</button>
+        </div>
+
+        <div class="miniGrid">
+          <div class="kpi">
+            <div class="k">Час (поточний кадр)</div>
+            <div class="v"><span id="kpiT">0</span> <span style="font-size:14px;font-weight:700;color:var(--mut)">с</span></div>
+            <div class="s">Крок: 1 с (оновлення телеметрії)</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Оцінка похибки позиціювання</div>
+            <div class="v"><span id="kpiErr">0.0</span> <span style="font-size:14px;font-weight:700;color:var(--mut)">м</span></div>
+            <div class="s">Відхилення від «істинної» траєкторії</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Стан GNSS</div>
+            <div class="v" id="kpiGnss">OK</div>
+            <div class="s" id="kpiGnssHint">Сигнал стабільний</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Оцінка якості навігації</div>
+            <div class="v" id="kpiQuality">Висока</div>
+            <div class="s">Залежить від режиму та шумів</div>
+          </div>
+        </div>
+
+        <div class="inputs">
+          <h3>Налаштування симуляції</h3>
+          <div class="formGrid">
+            <div class="field">
+              <label for="inDuration">Тривалість (с)</label>
+              <input id="inDuration" type="number" min="30" max="600" value="120" />
+              <div class="help">Рекомендовано: 120–240 с</div>
+            </div>
+
+            <div class="field">
+              <label for="inSpeed">Швидкість (м/с)</label>
+              <input id="inSpeed" type="number" min="5" max="80" value="18" />
+              <div class="help">Командна швидкість (V_cmd)</div>
+            </div>
+
+            <div class="field">
+              <label for="inNoiseGnss">Шум GNSS (м)</label>
+              <input id="inNoiseGnss" type="number" min="0" max="30" step="0.5" value="2.5" />
+              <div class="help">Нормальний режим: невелика похибка</div>
+            </div>
+
+            <div class="field">
+              <label for="inNoiseReb">Шум у РЕБ (м)</label>
+              <input id="inNoiseReb" type="number" min="5" max="200" step="1" value="25" />
+              <div class="help">РЕБ: суттєві спотворення/стрибки</div>
+            </div>
+
+            <div class="field">
+              <label for="inDropProb">Ймовірність втрати GNSS у РЕБ</label>
+              <input id="inDropProb" type="number" min="0" max="0.95" step="0.05" value="0.25" />
+              <div class="help">0.25 = ~25% секунд без GNSS</div>
+            </div>
+
+            <div class="field">
+              <label for="inAutoDrift">Дрейф AUTO (м/с)</label>
+              <input id="inAutoDrift" type="number" min="0" max="10" step="0.2" value="0.9" />
+              <div class="help">AUTO: інерційна оцінка + дрейф</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <b>Синя лінія</b> — істинна траєкторія.<br/>
+          <b>Жовта пунктирна</b> — оцінена траєкторія (можна вимкнути).<br/>
+          <b>Синій маркер</b> — “дрон (істина)”, <b>жовтий</b> — “оцінка”.<br/>
+          У РЕБ при LOST оцінка може “залипати” → <b>V_est падає до ~0</b>.
+        </div>
+      </div>
+
+      <div class="panel" id="tab_table">
+        <div class="hint">
+          Натисни <b>«Таблиця телеметрії (вікно)»</b>, щоб побачити всі поля (в т.ч. V_cmd та V_est).
+        </div>
+      </div>
+
+      <div class="panel" id="tab_explain">
+        <div class="hint">
+          <b>GNSS</b>: оцінка ≈ істина + невеликий шум.<br/>
+          <b>AUTO</b>: GNSS відсутній → оцінка інерційно + дрейф, похибка зростає.<br/>
+          <b>РЕБ</b>: частково “зникає” GNSS, додається сильний шум/стрибки. При LOST оцінка може “залипати”.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =============================
+   1) Helpers
+============================= */
+const MODES = { GNSS:"GNSS", AUTO:"AUTO", REB:"REB" };
+function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
+function randn(){
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+function metersToLat(m){ return m / 111320.0; }
+function metersToLng(m, lat){ return m / (111320.0 * Math.cos(lat * Math.PI/180)); }
+function haversineMeters(lat1,lng1,lat2,lng2){
+  const R = 6371000;
+  const toRad = d=>d*Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+/* =============================
+   2) State + stores
+============================= */
+let mode = MODES.GNSS;
+let running = false;
+let timer = null;
+
+const stores = {
+  GNSS: { rows: [], trueLine: null, estLine: null, droneTrue: null, droneEst: null },
+  AUTO: { rows: [], trueLine: null, estLine: null, droneTrue: null, droneEst: null },
+  REB:  { rows: [], trueLine: null, estLine: null, droneTrue: null, droneEst: null }
+};
+
+/* =============================
+   3) Map init
+============================= */
+const startLat = 50.4501;
+const startLng = 30.5234;
+
+const map = L.map("map", { zoomControl: true }).setView([startLat, startLng], 14);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+
+const iconTrue = L.divIcon({ className:"", html:'<div class="drone-icon"></div>', iconSize:[18,18], iconAnchor:[9,9] });
+const iconEst  = L.divIcon({ className:"", html:'<div class="drone-icon est"></div>', iconSize:[18,18], iconAnchor:[9,9] });
+
+function ensureLayers(){
+  const s = stores[mode];
+  if(!s.trueLine){
+    s.trueLine = L.polyline([], { color:"#49a6ff", weight: 6, opacity: .95 }).addTo(map);
+  }
+  if(!s.estLine){
+    s.estLine = L.polyline([], { color:"#ffcc66", weight: 4, opacity: .95, dashArray: "10 8" }).addTo(map);
+  }
+  if(!s.droneTrue){
+    s.droneTrue = L.marker([startLat, startLng], { icon: iconTrue, interactive:false }).addTo(map);
+  }
+  if(!s.droneEst){
+    s.droneEst = L.marker([startLat, startLng], { icon: iconEst, interactive:false }).addTo(map);
+  }
+}
+
+function clearModeLayers(){
+  const s = stores[mode];
+  if(s.trueLine) s.trueLine.setLatLngs([]);
+  if(s.estLine)  s.estLine.setLatLngs([]);
+  if(s.droneTrue) s.droneTrue.setLatLng([startLat,startLng]);
+  if(s.droneEst)  s.droneEst.setLatLng([startLat,startLng]);
+}
+
+function fitToCurrent(){
+  const s = stores[mode];
+  const pts = [];
+  if(s.trueLine) pts.push(...s.trueLine.getLatLngs());
+  if(s.estLine && document.getElementById("chkShowEst").checked) pts.push(...s.estLine.getLatLngs());
+  if(pts.length){
+    const bounds = L.latLngBounds(pts);
+    map.fitBounds(bounds.pad(0.25));
+  }else{
+    map.setView([startLat,startLng], 14);
+  }
+}
+
+/* =============================
+   4) UI elements
+============================= */
+const runState = document.getElementById("runState");
+const modePill = document.getElementById("modePill");
+const pointsPill = document.getElementById("pointsPill");
+const curModeText = document.getElementById("curModeText");
+const dotCur = document.getElementById("dotCur");
+
+const kpiT = document.getElementById("kpiT");
+const kpiErr = document.getElementById("kpiErr");
+const kpiGnss = document.getElementById("kpiGnss");
+const kpiGnssHint = document.getElementById("kpiGnssHint");
+const kpiQuality = document.getElementById("kpiQuality");
+
+const chkFollow = document.getElementById("chkFollow");
+const chkShowEst = document.getElementById("chkShowEst");
+
+const inDuration = document.getElementById("inDuration");
+const inSpeed = document.getElementById("inSpeed");
+const inNoiseGnss = document.getElementById("inNoiseGnss");
+const inNoiseReb = document.getElementById("inNoiseReb");
+const inDropProb = document.getElementById("inDropProb");
+const inAutoDrift = document.getElementById("inAutoDrift");
+
+function readParams(){
+  return {
+    duration: clamp(Number(inDuration.value||120), 30, 600),
+    speed: clamp(Number(inSpeed.value||18), 5, 80),
+    noiseGnss: clamp(Number(inNoiseGnss.value||2.5), 0, 30),
+    noiseReb: clamp(Number(inNoiseReb.value||25), 5, 200),
+    dropProb: clamp(Number(inDropProb.value||0.25), 0, 0.95),
+    autoDrift: clamp(Number(inAutoDrift.value||0.9), 0, 10)
+  };
+}
+
+function updateHeader(){
+  runState.textContent = running ? "працює" : "зупинено";
+  runState.style.color = running ? "var(--good)" : "var(--mut)";
+  modePill.textContent = mode;
+  curModeText.textContent = mode;
+  pointsPill.textContent = String(stores[mode].rows.length);
+  dotCur.style.background = (mode===MODES.REB) ? "var(--warn)" : (mode===MODES.AUTO) ? "var(--acc)" : "var(--good)";
+}
+
+/* Tabs */
+document.querySelectorAll(".tabBtn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tabBtn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab_"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* Mode buttons */
+document.querySelectorAll(".modeBtn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".modeBtn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    mode = btn.dataset.mode;
+    ensureLayers();
+    updateHeader();
+    redrawFromStore();
+  });
+});
+
+chkShowEst.addEventListener("change", ()=>{
+  const s = stores[mode];
+  if(s.estLine){
+    s.estLine.setStyle({ opacity: chkShowEst.checked ? .95 : 0.0 });
+  }
+  if(s.droneEst){
+    s.droneEst.setOpacity(chkShowEst.checked ? 1.0 : 0.0);
+  }
+});
+
+/* =============================
+   5) True trajectory (bigger radius)
+============================= */
+function truePositionAt(tSec, params){
+  const R = 1000; // ✅ ЗБІЛЬШЕНО (було 120) — тепер видно на карті
+  const w = params.speed / R;
+  const ang = w * tSec;
+
+  const x = R * Math.cos(ang);
+  const y = R * Math.sin(ang);
+
+  const lat = startLat + metersToLat(y);
+  const lng = startLng + metersToLng(x, startLat);
+  return { lat, lng };
+}
+
+/* =============================
+   6) Simulation step
+============================= */
+function stepSim(curMode, sec, params, autoState){
+  const pTrue = truePositionAt(sec, params);
+
+  let gnssOk = true;
+  let est = { lat: pTrue.lat, lng: pTrue.lng };
+
+  if(curMode === MODES.GNSS){
+    est.lat = pTrue.lat + metersToLat(params.noiseGnss * randn());
+    est.lng = pTrue.lng + metersToLng(params.noiseGnss * randn(), pTrue.lat);
+    gnssOk = true;
+  }
+  else if(curMode === MODES.REB){
+    const lost = Math.random() < params.dropProb;
+    gnssOk = !lost;
+    if(lost){
+      est = { ...autoState.lastEst }; // “залипання”
+    }else{
+      const noiseM = params.noiseReb;
+      est.lat = pTrue.lat + metersToLat(noiseM * randn());
+      est.lng = pTrue.lng + metersToLng(noiseM * randn(), pTrue.lat);
+    }
+  }
+  else if(curMode === MODES.AUTO){
+    gnssOk = false;
+
+    const pPrev = truePositionAt(sec-1, params);
+    const dLatTrue = pTrue.lat - pPrev.lat;
+    const dLngTrue = pTrue.lng - pPrev.lng;
+
+    const driftMeters = params.autoDrift;
+    const driftLat = metersToLat(driftMeters * randn());
+    const driftLng = metersToLng(driftMeters * randn(), pTrue.lat);
+
+    est.lat = autoState.lastEst.lat + dLatTrue + driftLat;
+    est.lng = autoState.lastEst.lng + dLngTrue + driftLng;
+  }
+
+  const errM = haversineMeters(pTrue.lat, pTrue.lng, est.lat, est.lng);
+
+  // V_est за оціненими координатами
+  const prevEst = autoState.lastEst;
+  const vEst = haversineMeters(prevEst.lat, prevEst.lng, est.lat, est.lng); // dt=1s
+
+  autoState.lastEst = { lat: est.lat, lng: est.lng };
+
+  return {
+    t: sec,
+    mode: curMode,
+    gnss: gnssOk,
+    latTrue: pTrue.lat, lngTrue: pTrue.lng,
+    latEst: est.lat, lngEst: est.lng,
+    err: errM,
+    vCmd: params.speed,
+    vEst: vEst
+  };
+}
+
+/* =============================
+   7) KPI + map update
+============================= */
+function qualityFromRow(r){
+  if(r.mode === MODES.GNSS) return "Висока";
+  if(r.mode === MODES.AUTO) return "Середня";
+  if(r.gnss) return "Нестабільна";
+  return "Низька";
+}
+function updateKpis(r){
+  kpiT.textContent = r.t;
+  kpiErr.textContent = r.err.toFixed(1);
+
+  if(r.gnss){
+    kpiGnss.textContent = "OK";
+    kpiGnss.style.color = "var(--good)";
+    kpiGnssHint.textContent = (r.mode===MODES.GNSS) ? "Сигнал стабільний" : "GNSS є, але в РЕБ можливі стрибки";
+  }else{
+    kpiGnss.textContent = "LOST";
+    kpiGnss.style.color = "var(--bad)";
+    kpiGnssHint.textContent = (r.mode===MODES.AUTO) ? "AUTO: GNSS відсутній постійно" : "РЕБ: тимчасова втрата GNSS";
+  }
+
+  const q = qualityFromRow(r);
+  kpiQuality.textContent = q;
+  kpiQuality.style.color = (q==="Висока") ? "var(--good)" : (q==="Середня") ? "var(--warn)" : "var(--bad)";
+}
+
+function pushPoint(r){
+  ensureLayers();
+  const s = stores[mode];
+
+  s.trueLine.addLatLng([r.latTrue, r.lngTrue]);
+
+  // show/hide est
+  if(chkShowEst.checked){
+    s.estLine.setStyle({ opacity: .95 });
+    s.estLine.addLatLng([r.latEst, r.lngEst]);
+    s.droneEst.setOpacity(1.0);
+    s.droneEst.setLatLng([r.latEst, r.lngEst]);
+  }else{
+    s.estLine.setStyle({ opacity: 0.0 });
+    s.droneEst.setOpacity(0.0);
+  }
+
+  // move drone marker (true)
+  s.droneTrue.setLatLng([r.latTrue, r.lngTrue]);
+
+  if(chkFollow.checked){
+    map.panTo([r.latTrue, r.lngTrue], { animate: true, duration: 0.25 });
+  }
+
+  updateKpis(r);
+  updateHeader();
+}
+
+function redrawFromStore(){
+  ensureLayers();
+  clearModeLayers();
+
+  const s = stores[mode];
+  const rows = s.rows;
+
+  // Respect toggles
+  if(s.estLine){
+    s.estLine.setStyle({ opacity: chkShowEst.checked ? .95 : 0.0 });
+  }
+  if(s.droneEst){
+    s.droneEst.setOpacity(chkShowEst.checked ? 1.0 : 0.0);
+  }
+
+  rows.forEach(r=>{
+    s.trueLine.addLatLng([r.latTrue, r.lngTrue]);
+    if(chkShowEst.checked){
+      s.estLine.addLatLng([r.latEst, r.lngEst]);
+    }
+  });
+
+  if(rows.length){
+    const last = rows[rows.length-1];
+    s.droneTrue.setLatLng([last.latTrue, last.lngTrue]);
+    if(chkShowEst.checked){
+      s.droneEst.setLatLng([last.latEst, last.lngEst]);
+    }
+    updateKpis(last);
+  }else{
+    kpiT.textContent = "0";
+    kpiErr.textContent = "0.0";
+    kpiGnss.textContent = "OK";
+    kpiGnss.style.color = "var(--good)";
+    kpiGnssHint.textContent = "Сигнал стабільний";
+    kpiQuality.textContent = "Висока";
+    kpiQuality.style.color = "var(--good)";
+  }
+  updateHeader();
+}
+
+/* =============================
+   8) Buttons
+============================= */
+const btnStart = document.getElementById("btnStart");
+const btnStop = document.getElementById("btnStop");
+const btnResetMode = document.getElementById("btnResetMode");
+const btnResetAll = document.getElementById("btnResetAll");
+const btnClearMode = document.getElementById("btnClearMode");
+const btnDemo60 = document.getElementById("btnDemo60");
+const btnFit = document.getElementById("btnFit");
+
+btnStart.addEventListener("click", ()=>{
+  if(running) return;
+  running = true;
+  updateHeader();
+
+  const params = readParams();
+  const autoState = { lastEst: { lat: startLat, lng: startLng } };
+
+  const s = stores[mode];
+  let t = 0;
+  if(s.rows.length){
+    const last = s.rows[s.rows.length-1];
+    t = last.t + 1;
+    autoState.lastEst = { lat: last.latEst, lng: last.lngEst };
+  }
+
+  timer = setInterval(()=>{
+    if(!running) return;
+    if(t > params.duration){
+      running = false;
+      clearInterval(timer);
+      timer = null;
+      updateHeader();
+      return;
+    }
+    const row = stepSim(mode, t, params, autoState);
+    stores[mode].rows.push(row);
+    pushPoint(row);
+    t += 1;
+  }, 200);
+});
+
+btnStop.addEventListener("click", ()=>{
+  running = false;
+  if(timer){ clearInterval(timer); timer = null; }
+  updateHeader();
+});
+
+btnResetMode.addEventListener("click", ()=>{
+  running = false;
+  if(timer){ clearInterval(timer); timer = null; }
+  stores[mode].rows = [];
+  clearModeLayers();
+  redrawFromStore();
+});
+
+btnResetAll.addEventListener("click", ()=>{
+  running = false;
+  if(timer){ clearInterval(timer); timer = null; }
+  Object.values(stores).forEach(s=>{
+    s.rows = [];
+    if(s.trueLine) s.trueLine.setLatLngs([]);
+    if(s.estLine) s.estLine.setLatLngs([]);
+    if(s.droneTrue) s.droneTrue.setLatLng([startLat,startLng]);
+    if(s.droneEst) s.droneEst.setLatLng([startLat,startLng]);
+  });
+  redrawFromStore();
+});
+
+btnClearMode.addEventListener("click", ()=>{
+  stores[mode].rows = [];
+  clearModeLayers();
+  redrawFromStore();
+});
+
+btnDemo60.addEventListener("click", ()=>{
+  const params = readParams();
+  const autoState = { lastEst: { lat: startLat, lng: startLng } };
+
+  stores[mode].rows = [];
+  clearModeLayers();
+
+  for(let t=0;t<60;t++){
+    const row = stepSim(mode, t, params, autoState);
+    stores[mode].rows.push(row);
+    pushPoint(row);
+  }
+
+  // після демо — одразу показати траєкторію у вікні
+  fitToCurrent();
+});
+
+btnFit.addEventListener("click", ()=>fitToCurrent());
+
+/* =============================
+   9) Popups (charts/table)
+============================= */
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+function modeText(m){
+  if(m===MODES.GNSS) return "GNSS";
+  if(m===MODES.REB) return "РЕБ";
+  return "AUTO";
+}
+
+function openPopup(title){
+  const w = window.open("", "_blank", "width=1240,height=740");
+  if(!w){
+    alert("Браузер заблокував нове вікно. Дозволь pop-up для цього сайту.");
+    return null;
+  }
+  w.document.write(`
+    <!doctype html>
+    <html lang="uk">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${escapeHtml(title)}</title>
+      <style>
+        :root{
+          --bg0:#07101f; --bg1:#0a1730; --txt:#eaf2ff;
+          --mut: rgba(234,242,255,.70); --br: rgba(255,255,255,.10);
+        }
+        body{ margin:0; font-family: system-ui, Segoe UI, Arial; color: var(--txt);
+              background: linear-gradient(180deg, var(--bg0), var(--bg1)); }
+        .top{ padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.10); }
+        h1{ margin:0; font-size: 18px; }
+        p{ margin:6px 0 0; color: var(--mut); font-size:13px; line-height:1.35; }
+        .content{ padding: 14px 16px 18px; }
+        .box{ border:1px solid var(--br); background: rgba(0,0,0,.18);
+              border-radius: 14px; padding: 12px; overflow:auto; }
+        canvas{ width: 1120px; max-width: 100%; height: 520px;
+                background: rgba(0,0,0,.14); border:1px solid rgba(255,255,255,.10);
+                border-radius: 12px; }
+        table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td{ padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.10);
+                white-space: nowrap; }
+        th{ color: var(--mut); text-align:left; position: sticky; top: 0; background: rgba(0,0,0,.25); }
+        .note{ margin-top:10px; color:var(--mut); font-size:12.5px; line-height:1.35; }
+      </style>
+    </head>
+    <body>
+      <div class="top">
+        <h1>${escapeHtml(title)}</h1>
+        <p>Режим: <b>${escapeHtml(modeText(mode))}</b> · Дані отримані шляхом моделювання (імітації).</p>
+      </div>
+      <div class="content">
+        <div id="root" class="box"></div>
+        <div id="note" class="note"></div>
+      </div>
+    </body>
+    </html>
+  `);
+  w.document.close();
+  return w;
+}
+
+function drawLineChart(canvas, labels, values, yLabel){
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width = 1120;
+  const H = canvas.height = 520;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = "rgba(0,0,0,0.10)";
+  ctx.fillRect(0,0,W,H);
+
+  const padL = 60, padR = 18, padT = 18, padB = 44;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const n = values.length;
+  if(!n){
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.font = "16px system-ui, Segoe UI, Arial";
+    ctx.fillText("Немає даних. Спочатку натисни «Заповнити демо (60с)» або «Старт».", padL, padT + 40);
+    return;
+  }
+
+  let vMin = Math.min(...values);
+  let vMax = Math.max(...values);
+  if(vMin === vMax){ vMax = vMin + 1; }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = 1;
+  const gridY = 5;
+  for(let i=0;i<=gridY;i++){
+    const y = padT + (plotH * i/gridY);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, padT+plotH);
+  ctx.lineTo(padL+plotW, padT+plotH);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,255,255,.75)";
+  ctx.font = "12px system-ui, Segoe UI, Arial";
+  ctx.fillText(yLabel, padL, 14);
+
+  for(let i=0;i<=gridY;i++){
+    const y = padT + (plotH * i/gridY);
+    const val = vMax - (vMax-vMin)*(i/gridY);
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.fillText(val.toFixed(1), 8, y+4);
+  }
+
+  ctx.strokeStyle = "rgba(73,166,255,.95)";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){
+    const x = padL + (plotW * (i/(n-1)));
+    const y = padT + plotH * (1 - (values[i]-vMin)/(vMax-vMin));
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,255,255,.55)";
+  ctx.font = "12px system-ui, Segoe UI, Arial";
+  const step = Math.max(1, Math.floor(n/8));
+  for(let i=0;i<n;i+=step){
+    const x = padL + (plotW * (i/(n-1)));
+    ctx.fillText(String(labels[i]), x-6, padT + plotH + 22);
+  }
+}
+
+function openChartWindow(kind){
+  const rows = (stores[mode].rows || []);
+  if(!rows.length){
+    alert("Немає даних у цьому режимі. Натисни «Заповнити демо (60с)» або «Старт».");
+    return;
+  }
+
+  let title = "";
+  let yLabel = "";
+  let values = [];
+
+  if(kind==="err"){
+    title = "Графік похибки позиціювання (м) / час";
+    yLabel = "Похибка, м";
+    values = rows.map(r=>Number(r.err.toFixed(2)));
+  }else if(kind==="speed"){
+    title = "Графік швидкості V_est (м/с) / час";
+    yLabel = "V_est, м/с";
+    values = rows.map(r=>Number((r.vEst ?? 0).toFixed(2)));
+  }else{
+    title = "Графік стану GNSS (1=OK, 0=LOST) / час";
+    yLabel = "GNSS (0/1)";
+    values = rows.map(r=>r.gnss ? 1 : 0);
+  }
+
+  const w = openPopup(title);
+  if(!w) return;
+
+  const root = w.document.getElementById("root");
+  const note = w.document.getElementById("note");
+
+  const canvas = w.document.createElement("canvas");
+  root.appendChild(canvas);
+
+  const labels = rows.map(r=>r.t);
+  drawLineChart(canvas, labels, values, yLabel);
+
+  note.textContent = "Примітка: графік побудовано за даними моделювання поточного режиму (імітація).";
+}
+
+function openTableWindow(){
+  const rows = (stores[mode].rows || []);
+  if(!rows.length){
+    alert("Немає даних у цьому режимі. Натисни «Заповнити демо (60с)» або «Старт».");
+    return;
+  }
+
+  const w = openPopup("Таблиця телеметрії");
+  if(!w) return;
+
+  const root = w.document.getElementById("root");
+  const note = w.document.getElementById("note");
+
+  const table = w.document.createElement("table");
+
+  const thead = w.document.createElement("thead");
+  const thr = w.document.createElement("tr");
+  const headers = ["t, с", "Режим", "GNSS", "Lat (іст.)", "Lng (іст.)", "Lat (оцін.)", "Lng (оцін.)", "Похибка, м", "V_cmd, м/с", "V_est, м/с"];
+  headers.forEach(h=>{
+    const th = w.document.createElement("th");
+    th.textContent = h;
+    thr.appendChild(th);
+  });
+  thead.appendChild(thr);
+  table.appendChild(thead);
+
+  const tbody = w.document.createElement("tbody");
+  rows.forEach(r=>{
+    const tr = w.document.createElement("tr");
+    const cells = [
+      r.t, modeText(r.mode),
+      r.gnss ? "OK" : "LOST",
+      r.latTrue.toFixed(6), r.lngTrue.toFixed(6),
+      r.latEst.toFixed(6),  r.lngEst.toFixed(6),
+      r.err.toFixed(1),
+      (r.vCmd ?? 0).toFixed(1),
+      (r.vEst ?? 0).toFixed(1)
+    ];
+    cells.forEach(c=>{
+      const td = w.document.createElement("td");
+      td.textContent = String(c);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  root.appendChild(table);
+  note.textContent = "Примітка: таблиця сформована за даними моделювання (імітації).";
+}
+
+/* кнопки вікон */
+document.getElementById("btnWinErr").addEventListener("click", ()=>openChartWindow("err"));
+document.getElementById("btnWinSpeed").addEventListener("click", ()=>openChartWindow("speed"));
+document.getElementById("btnWinGnss").addEventListener("click", ()=>openChartWindow("gnss"));
+document.getElementById("btnWinTable").addEventListener("click", ()=>openTableWindow());
+
+/* init */
+ensureLayers();
+updateHeader();
+redrawFromStore();
+</script>
+</body>
+</html>
